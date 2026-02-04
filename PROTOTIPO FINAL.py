@@ -31,7 +31,7 @@ def base_dir():
 BASE_DIR = base_dir()
 
 # Archivos (deja estos archivos en la misma carpeta del .py / .exe)
-RUTA_FONDO = os.path.join(BASE_DIR, "WhatsApp Image 2026-01-31 at 7.24.43 AM.jpeg")
+RUTA_FONDO = os.path.join(BASE_DIR, ""fondo.jpg"")
 RUTA_ICONO_ICO = os.path.join(BASE_DIR, "icon.ico")
 
 
@@ -216,8 +216,16 @@ except Exception as e:
 
 # --- 4. FONDO ---
 try:
-    if os.path.exists(RUTA_FONDO):
+    if not os.path.exists(RUTA_FONDO):
+        messagebox.showwarning(
+            "Fondo no encontrado",
+            f"No se encontró la imagen de fondo:\n{RUTA_FONDO}\n\n"
+            "Deja 'fondo.jpg' en la misma carpeta del .exe/.py."
+        )
+        ventana.configure(bg="#f0f0f0")
+    else:
         img_original = Image.open(RUTA_FONDO)
+
         ratio_ventana = ANCHO / ALTO
         ratio_imagen = img_original.width / img_original.height
 
@@ -236,11 +244,13 @@ try:
 
         fondo_tk = ImageTk.PhotoImage(img_nublada, master=ventana)
         etiqueta_fondo = tk.Label(ventana, image=fondo_tk)
+        etiqueta_fondo.image = fondo_tk  # IMPORTANTÍSIMO: evita que se borre
         etiqueta_fondo.place(x=0, y=0, relwidth=1, relheight=1)
-    else:
-        ventana.configure(bg="#f0f0f0")
-except:
+
+except Exception as e:
+    messagebox.showerror("Error cargando fondo", str(e))
     ventana.configure(bg="#f0f0f0")
+
 
 
 # --- 5. PANEL CENTRAL ---
@@ -318,4 +328,5 @@ etiqueta_resultado = tk.Label(panel, text="", font=("Segoe UI", 16, "bold"), bg=
 etiqueta_resultado.pack(pady=(0, 18), ipady=10)
 
 ventana.mainloop()
+
 
