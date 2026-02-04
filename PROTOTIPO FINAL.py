@@ -14,25 +14,27 @@ from openpyxl.utils import get_column_letter
 # -----------------------------
 # REGISTROS PARA INFORME EXCEL
 # -----------------------------
-registros = []  # aquí se acumulan todas las validaciones
+registros = []
 
 
 # -----------------------------
 # RUTA BASE (portable para EXE)
 # -----------------------------
 def base_dir():
-    # si está empaquetado con PyInstaller
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    # Si está empaquetado con PyInstaller:
+    # - onedir: sys.executable apunta al .exe dentro de dist/carpeta
+    # - onefile: sys._MEIPASS es carpeta temporal interna
+    if getattr(sys, "frozen", False):
+        # onedir (y también sirve para onefile cuando quieras tomar junto al exe)
         return os.path.dirname(sys.executable)
-    # si corre como .py normal
     return os.path.dirname(os.path.abspath(__file__))
 
 
 BASE_DIR = base_dir()
 
-# Archivos (deja estos archivos en la misma carpeta del .py / .exe)
-RUTA_FONDO = os.path.join(BASE_DIR, ""fondo.jpg"")
-RUTA_ICONO_ICO = os.path.join(BASE_DIR, "icon.ico")
+# Archivos (deben estar en la misma carpeta del .py o del .exe)
+RUTA_FONDO = os.path.join(BASE_DIR, "fondo.jpg")
+RUTA_ICONO_ICO = os.path.join(BASE_DIR, "icon.ico.ico")
 
 
 # --- 1. FUNCIÓN DE CÁLCULO ---
@@ -43,7 +45,7 @@ def calcular():
         peso_fruta = float(entry_peso_fruta.get())
         bct = float(entry_bct.get())
 
-        # Factor de seguridad editable (libre: 1,2,3...8,10, etc.)
+        # Factor de seguridad editable (libre)
         FACTOR = float(entry_factor.get())
         if FACTOR <= 0:
             raise ValueError("Factor inválido")
@@ -55,7 +57,6 @@ def calcular():
         altura_util = ALTURA_MAX - PALLET_BASE
         pisos = int(altura_util / alto)
 
-        # Validación mínima para evitar pisos inválidos
         if pisos < 2:
             etiqueta_resultado.config(text="⚠️ DATOS NO VÁLIDOS", bg="#f39c12", fg="white")
             ventana.update()
@@ -75,7 +76,6 @@ def calcular():
         resultado_texto += f"Resistencia Necesaria: {resistencia_req:.1f} kg\n"
         resultado_texto += f"Tu Caja: {bct:.1f} kg\n\n"
 
-        # SEMÁFORO VISUAL
         if bct >= resistencia_req:
             estado = "APROBADA"
             etiqueta_resultado.config(text="✅ CAJA APROBADA", bg="#28a745", fg="white")
@@ -93,7 +93,6 @@ def calcular():
                 resultado_texto + f"RECHAZADA.\nTe faltan {abs(margen):.1f} kg."
             )
 
-        # Guardar registro para el Excel (incluye el factor)
         registros.append({
             "FechaHora": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "AltoCaja_mm": alto,
@@ -130,9 +129,8 @@ def generar_informe_excel():
             initialfile=nombre_sugerido,
             title="Guardar informe Excel"
         )
-
         if not ruta:
-            return  # usuario canceló
+            return
 
         wb = Workbook()
         ws = wb.active
@@ -145,18 +143,16 @@ def generar_informe_excel():
         ]
         ws.append(headers)
 
-        # Estilos
         header_fill = PatternFill("solid", fgColor="2C3E50")
         header_font = Font(color="FFFFFF", bold=True)
         center = Alignment(horizontal="center", vertical="center")
 
-        for col, _h in enumerate(headers, start=1):
+        for col in range(1, len(headers) + 1):
             cell = ws.cell(row=1, column=col)
             cell.fill = header_fill
             cell.font = header_font
             cell.alignment = center
 
-        # Datos
         for r in registros:
             ws.append([
                 r["FechaHora"],
@@ -174,10 +170,9 @@ def generar_informe_excel():
         ws.freeze_panes = "A2"
         ws.auto_filter.ref = ws.dimensions
 
-        # Ajustar ancho de columnas + alineación
         for col in range(1, len(headers) + 1):
-            max_len = 0
             col_letter = get_column_letter(col)
+            max_len = 0
             for cell in ws[col_letter]:
                 val = "" if cell.value is None else str(cell.value)
                 max_len = max(max_len, len(val))
@@ -211,10 +206,10 @@ try:
     if os.path.exists(RUTA_ICONO_ICO):
         ventana.iconbitmap(RUTA_ICONO_ICO)
 except Exception as e:
-    print("No se pudo cargar icon.ico:", e)
+    print("No se pudo cargar icono:", e)
 
 
-# --- 4. FONDO ---
+# --- 4. FONDO (robusto) ---
 try:
     if not os.path.exists(RUTA_FONDO):
         messagebox.showwarning(
@@ -244,13 +239,12 @@ try:
 
         fondo_tk = ImageTk.PhotoImage(img_nublada, master=ventana)
         etiqueta_fondo = tk.Label(ventana, image=fondo_tk)
-        etiqueta_fondo.image = fondo_tk  # IMPORTANTÍSIMO: evita que se borre
+        etiqueta_fondo.image = fondo_tk  # evita que se borre
         etiqueta_fondo.place(x=0, y=0, relwidth=1, relheight=1)
 
 except Exception as e:
     messagebox.showerror("Error cargando fondo", str(e))
     ventana.configure(bg="#f0f0f0")
-
 
 
 # --- 5. PANEL CENTRAL ---
@@ -277,7 +271,7 @@ entry_peso_envase = crear_casilla(panel, "Peso Envase (gr):")
 entry_peso_fruta = crear_casilla(panel, "Peso Fruta (kg):")
 entry_bct = crear_casilla(panel, "Resistencia BCT (kg):")
 entry_factor = crear_casilla(panel, "Factor Seguridad:")
-entry_factor.insert(0, "8")  # valor por defecto
+entry_factor.insert(0, "8")
 
 tk.Label(panel, text="PARÁMETROS", font=("Segoe UI", 10, "bold"), bg="#ffffff", fg="#95a5a6").pack(pady=(18, 5))
 
@@ -318,15 +312,15 @@ btn_excel = tk.Button(
 )
 btn_excel.pack(pady=(0, 12), fill="x", padx=60)
 
-# Contador de registros
-lbl_contador = tk.Label(panel, text="Registros guardados: 0", font=("Segoe UI", 11, "bold"),
-                        bg="#ffffff", fg="#2c3e50")
+lbl_contador = tk.Label(panel, text="Registros guardados: 0",
+                        font=("Segoe UI", 11, "bold"), bg="#ffffff", fg="#2c3e50")
 lbl_contador.pack(pady=(0, 8))
 
-# ETIQUETA DE RESULTADO
 etiqueta_resultado = tk.Label(panel, text="", font=("Segoe UI", 16, "bold"), bg="#ffffff", width=45)
 etiqueta_resultado.pack(pady=(0, 18), ipady=10)
 
 ventana.mainloop()
+
+
 
 
